@@ -72,3 +72,85 @@ public class ExlProcess {
 
     }
 }
+
+
+
+
+
+
+
+
+
+package com.example.demo.service;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.*;
+
+@Service
+public class ExlProcess {
+
+    public List<Map<String, Object>> upload(MultipartFile file) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
+
+            // Get the active sheet
+            XSSFSheet sheetToProcess = workbook.getSheetAt(workbook.getActiveSheetIndex());
+
+            // Get the header row
+            Iterator<Row> rows = sheetToProcess.rowIterator();
+            Row headerRow = rows.next();
+            List<String> headers = new ArrayList<>();
+            for (Cell cell : headerRow) {
+                headers.add(getCellValueAsString(cell));
+            }
+
+            // Process remaining rows
+            List<Map<String, Object>> rowsResult = new ArrayList<>();
+            rows.forEachRemaining(row -> {
+                Map<String, Object> rowMap = new LinkedHashMap<>();
+                for (int i = 0; i < headers.size(); i++) {
+                    Cell cell = row.getCell(i, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                    rowMap.put(headers.get(i), getCellValueAsString(cell));
+                }
+                rowsResult.add(rowMap);
+            });
+
+            return rowsResult;
+
+        } catch (IOException e) {
+            throw new RuntimeException("Error processing Excel file", e);
+        }
+    }
+
+    // Utility method to handle different cell types
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString(); // Format as needed
+                } else {
+                    return String.valueOf(cell.getNumericCellValue());
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
+    }
+}
+
+
+
+
